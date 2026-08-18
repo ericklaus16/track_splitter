@@ -46,16 +46,9 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         cd dist
-        zip -r ../TrackSplitter-Mac-Full.zip TrackSplitter
-        # No Mac o PyInstaller onedir windowed gera TrackSplitter.app, mas o build.py tira o --windowed no linux/mac?
-        # Nosso build.py usa --windowed. Em Mac gera .app
-        # Na verdade, para simplificar vamos apenas zipar a pasta TrackSplitter inteira.
-        # No --onedir sem --windowed no Mac gera uma pasta TrackSplitter normal. Nosso build.py tem --windowed.
-        # Vamos zipar todo o conteúdo para Patch também, apenas omitindo a pasta _internal se possível, ou zipando só o executável.
-        # Para garantir estabilidade no Patch de Mac/Linux, vamos zipar o executável "TrackSplitter" ou ".app" 
-        cd TrackSplitter
-        zip -r ../../TrackSplitter-Mac-Patch.zip * -x "*_internal*"
-        cd ../..
+        zip -r ../TrackSplitter-Mac-Full.zip TrackSplitter.app
+        cd TrackSplitter.app/Contents/MacOS
+        zip ../../../../TrackSplitter-Mac-Patch.zip TrackSplitter
 
     - name: Zip Full Application (Linux)
       if: runner.os == 'Linux'
@@ -63,15 +56,13 @@ jobs:
         cd dist
         zip -r ../TrackSplitter-Linux-Full.zip TrackSplitter
         cd TrackSplitter
-        zip -r ../../TrackSplitter-Linux-Patch.zip * -x "*_internal*"
-        cd ../..
+        zip ../../TrackSplitter-Linux-Patch.zip TrackSplitter
 
     - name: Upload Artifacts to Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          TrackSplitter-*-Full.zip
           TrackSplitter-*-Patch.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
