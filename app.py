@@ -10,7 +10,7 @@ from core import download_youtube_audio, separate_audio
 
 # Configuração de Versão e Auto-Update
 CURRENT_VERSION = "v1.0.0"
-GITHUB_REPO = "SEU_USUARIO/SEU_REPOSITORIO" # TODO: Substituir pelo seu usuário/repositório real no GitHub
+GITHUB_REPO = "ericklaus16/track_splitter.git" 
 
 # Configuração da aparência inicial
 ctk.set_appearance_mode("Dark")

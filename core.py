@@ -67,10 +67,49 @@ def separate_audio(input_file, output_folder, stems=2, progress_callback=None):
     args.append(input_file)
     
     if progress_callback:
-        progress_callback(0.5, "Processando áudio com Demucs (IA)...")
+        progress_callback(0.0, "Processando áudio com Demucs (IA)... 0%")
 
-    # Call demucs main
-    demucs_main(args)
+    import sys
+    import re
+    
+    class TqdmInterceptor:
+        def __init__(self, callback):
+            self.original_stderr = sys.stderr
+            self.callback = callback
+            self.buffer = ""
+
+        def write(self, text):
+            self.original_stderr.write(text)
+            self.buffer += text
+            if '\r' in self.buffer or '\n' in self.buffer:
+                parts = self.buffer.replace('\r', '\n').split('\n')
+                for part in parts:
+                    if '%' in part:
+                        try:
+                            match = re.search(r'(\d+)%', part)
+                            if match:
+                                percent = int(match.group(1))
+                                self.callback(percent / 100.0, f"Processando IA (Demucs): {percent}%")
+                        except:
+                            pass
+                self.buffer = parts[-1]
+
+        def flush(self):
+            self.original_stderr.flush()
+
+    # Intercepta o sys.stderr temporariamente para ler o progresso
+    interceptor = None
+    if progress_callback:
+        interceptor = TqdmInterceptor(progress_callback)
+        sys.stderr = interceptor
+
+    try:
+        # Call demucs main
+        demucs_main(args)
+    finally:
+        # Restaura o stderr original
+        if interceptor:
+            sys.stderr = interceptor.original_stderr
     
     # Após o demucs terminar, ele cria: output_folder / model_name / base_name / faixas.wav
     # Queremos mover para: output_folder / base_name / faixas.wav
