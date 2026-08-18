@@ -2,23 +2,67 @@ import os
 import subprocess
 import yt_dlp
 import re
+import sys
+
+def ensure_ffmpeg(progress_callback=None):
+    """Baixa o FFmpeg e FFprobe automaticamente se não existirem no PC"""
+    import urllib.request
+    import zipfile
+    
+    # Se estiver rodando como .exe, salva na pasta onde o .exe está
+    base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+    ffmpeg_exe = os.path.join(base_dir, "ffmpeg.exe")
+    ffprobe_exe = os.path.join(base_dir, "ffprobe.exe")
+    
+    if os.path.exists(ffmpeg_exe) and os.path.exists(ffprobe_exe):
+        return base_dir # Já temos os arquivos!
+        
+    if progress_callback:
+        progress_callback(0.0, "Instalando dependências de áudio (FFmpeg) pela primeira vez...")
+        
+    zip_path = os.path.join(base_dir, "ffmpeg.zip")
+    url = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+    
+    # Faz o download
+    urllib.request.urlretrieve(url, zip_path)
+    
+    if progress_callback:
+        progress_callback(0.5, "Extraindo dependências de áudio...")
+        
+    # Extrai os dois arquivos executáveis
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        for file_info in zip_ref.infolist():
+            if file_info.filename.endswith('ffmpeg.exe'):
+                with open(ffmpeg_exe, 'wb') as f_out:
+                    f_out.write(zip_ref.read(file_info))
+            elif file_info.filename.endswith('ffprobe.exe'):
+                with open(ffprobe_exe, 'wb') as f_out:
+                    f_out.write(zip_ref.read(file_info))
+                    
+    # Limpeza
+    os.remove(zip_path)
+    return base_dir
 
 def download_youtube_audio(url, output_folder, progress_callback=None):
     """
     Downloads audio from a YouTube URL and returns the downloaded file path.
     """
     def my_hook(d):
-        if d['status'] == 'downloading' and progress_callback:
-            # Parse percentage
-            p = d.get('_percent_str', '0.0%')
-            p = re.sub(r'\x1b\[[0-9;]*m', '', p) # remove ANSI codes
+        if d['status'] == 'downloading':
+            p = d.get('_percent_str', '0%').replace('%', '').strip()
+            # Remove ANSI escape sequences
+            p = re.sub(r'\x1b\[[0-9;]*m', '', p)
             try:
-                percent = float(p.strip('%'))
-                progress_callback(percent / 100.0, f"Baixando YouTube: {p}")
+                percent = float(p) / 100.0
+                if progress_callback:
+                    progress_callback(percent, f"Baixando do YouTube: {p}%")
             except:
                 pass
-        elif d['status'] == 'finished' and progress_callback:
-            progress_callback(1.0, "Download concluído! Processando áudio...")
+        elif d['status'] == 'finished':
+            if progress_callback:
+                progress_callback(1.0, "Download do YouTube concluído! Convertendo...")
+
+    ffmpeg_dir = ensure_ffmpeg(progress_callback)
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -28,6 +72,7 @@ def download_youtube_audio(url, output_folder, progress_callback=None):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
+        'ffmpeg_location': ffmpeg_dir,
         'progress_hooks': [my_hook],
         'quiet': True,
         'no_warnings': True,
