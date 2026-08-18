@@ -188,8 +188,8 @@ class TrackSplitterApp(ctk.CTk):
                 data = response.json()
                 latest_version = data.get("tag_name", "")
                 
-                # Comparação super simples: se a tag online for diferente da atual, atualiza
-                if latest_version and latest_version != CURRENT_VERSION:
+                # Compara se a versão online é MAIOR que a instalada
+                if latest_version and latest_version > CURRENT_VERSION:
                     assets = data.get("assets", [])
                     if assets:
                         # Pega o primeiro asset (geralmente o .exe)
