@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox
 from core import download_youtube_audio, separate_audio
 
 # Configuração de Versão e Auto-Update
-CURRENT_VERSION = "v1.0.1"
+CURRENT_VERSION = "v1.0.2"
 GITHUB_REPO = "ericklaus16/track_splitter" 
 
 # Configuração da aparência inicial
