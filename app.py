@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox
 from core import download_youtube_audio, separate_audio
 
 # Configuração de Versão e Auto-Update
-CURRENT_VERSION = "v1.0.2"
+CURRENT_VERSION = "v1.0.3"
 GITHUB_REPO = "ericklaus16/track_splitter" 
 
 # Configuração da aparência inicial
@@ -104,6 +104,10 @@ class TrackSplitterApp(ctk.CTk):
         # Botão Processar
         self.process_btn = ctk.CTkButton(self, text="Iniciar Separação", font=ctk.CTkFont(weight="bold", size=14), height=40, command=self.start_processing)
         self.process_btn.pack(pady=10)
+        
+        # Label de Versão no rodapé
+        self.version_label = ctk.CTkLabel(self, text=f"Versão Instalada: {CURRENT_VERSION}", text_color="gray", font=ctk.CTkFont(size=11))
+        self.version_label.pack(side="bottom", anchor="se", padx=10, pady=5)
 
         # Iniciar UI correta
         self.update_ui()
