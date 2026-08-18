@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox
 from core import download_youtube_audio, separate_audio
 
 # Configuração de Versão e Auto-Update
-CURRENT_VERSION = "v1.0.3"
+CURRENT_VERSION = "v1.0.4"
 GITHUB_REPO = "ericklaus16/track_splitter" 
 
 # Configuração da aparência inicial
@@ -145,11 +145,14 @@ class TrackSplitterApp(ctk.CTk):
                 raise Exception("Por favor, selecione uma pasta de destino.")
 
             input_file = ""
+            is_youtube = False
+            
             if self.input_type.get() == "file":
                 input_file = self.file_path.get()
                 if not input_file:
                     raise Exception("Por favor, selecione um arquivo de áudio.")
             else:
+                is_youtube = True
                 url = self.youtube_url.get()
                 if not url:
                     raise Exception("Por favor, insira o link do YouTube.")
@@ -160,6 +163,13 @@ class TrackSplitterApp(ctk.CTk):
             
             self.update_progress(0.0, "Iniciando IA de separação de áudio...")
             final_folder = separate_audio(input_file, out_folder, stems, self.update_progress)
+            
+            # Limpeza: Apaga o arquivo original só se tiver sido baixado do YouTube
+            if is_youtube and os.path.exists(input_file):
+                try:
+                    os.remove(input_file)
+                except:
+                    pass
             
             self.update_progress(1.0, "Concluído com sucesso!")
             messagebox.showinfo("Sucesso", f"As faixas foram separadas e salvas em:\n{final_folder}")
@@ -192,8 +202,30 @@ class TrackSplitterApp(ctk.CTk):
                 if latest_version and latest_version > CURRENT_VERSION:
                     assets = data.get("assets", [])
                     if assets:
-                        # Pega o primeiro asset (geralmente o .exe)
-                        download_url = assets[0].get("browser_download_url")
+                        import platform
+                        os_name = platform.system().lower()
+                        keyword = "windows"
+                        if os_name == "darwin":
+                            keyword = "mac"
+                        elif os_name == "linux":
+                            keyword = "linux"
+
+                        download_url = None
+                        # Procurar por um arquivo "Patch" para o SO atual
+                        for asset in assets:
+                            name = asset.get("name", "").lower()
+                            if keyword in name and "patch" in name:
+                                download_url = asset.get("browser_download_url")
+                                break
+                        
+                        # Fallback: pegar o primeiro que bata com o SO se não achar Patch
+                        if not download_url:
+                            for asset in assets:
+                                name = asset.get("name", "").lower()
+                                if keyword in name:
+                                    download_url = asset.get("browser_download_url")
+                                    break
+                                    
                         if download_url:
                             # Chama a interface na thread principal
                             self.after(2000, lambda: self.prompt_update(latest_version, download_url))
@@ -211,6 +243,8 @@ class TrackSplitterApp(ctk.CTk):
     def perform_update(self, download_url):
         try:
             import zipfile
+            import platform
+            import subprocess
             
             is_zip = download_url.lower().endswith('.zip')
             download_name = "update.zip" if is_zip else "update.exe"
@@ -229,39 +263,52 @@ class TrackSplitterApp(ctk.CTk):
             
             self.update_progress(1.0, "Atualização baixada! Reiniciando...")
             
-            # Se for um ZIP, descompacta ele para pegar o update.exe
+            # Se for um ZIP, descompacta ele para pegar o executável novo
             if is_zip:
                 with zipfile.ZipFile(download_name, 'r') as zip_ref:
-                    # Procura pelo arquivo .exe dentro do zip
                     file_list = zip_ref.namelist()
-                    exe_file = next((f for f in file_list if f.endswith('.exe')), None)
-                    if exe_file:
-                        # Extrai e renomeia para update.exe
-                        extracted_path = zip_ref.extract(exe_file)
-                        if os.path.exists("update.exe"):
-                            os.remove("update.exe")
-                        os.rename(extracted_path, "update.exe")
-                # Apaga o zip original
+                    # Ignorar pastas, focar no arquivo executável principal
+                    exe_file = next((f for f in file_list if "TrackSplitter" in f and not f.endswith('/')), None)
+                    if not exe_file:
+                        exe_file = file_list[0] # Fallback
+                        
+                    extracted_path = zip_ref.extract(exe_file)
+                    if os.path.exists("update_bin"):
+                        os.remove("update_bin")
+                    os.rename(extracted_path, "update_bin")
                 os.remove(download_name)
+            else:
+                if os.path.exists("update_bin"):
+                    os.remove("update_bin")
+                os.rename("update.exe", "update_bin")
             
-            # Criar script BAT para substituir o .exe atual e reiniciar
             current_exe = sys.executable
             exe_name = os.path.basename(current_exe)
+            is_win = platform.system().lower() == "windows"
             
-            # Script que espera 2 segundos, move o update.exe para o nome original, inicia e se deleta
-            bat_content = f"""@echo off
+            if is_win:
+                bat_content = f"""@echo off
 timeout /t 2 /nobreak > NUL
-move /y "update.exe" "{exe_name}"
+move /y "update_bin" "{exe_name}"
 start "" "{exe_name}"
 del "%~f0"
 """
-            with open("update.bat", "w") as bat_file:
-                bat_file.write(bat_content)
-                
-            # Executa o BAT de forma assíncrona
-            os.startfile("update.bat")
+                with open("update.bat", "w") as bat_file:
+                    bat_file.write(bat_content)
+                os.startfile("update.bat")
+            else:
+                sh_content = f"""#!/bin/bash
+sleep 2
+mv -f "update_bin" "{exe_name}"
+chmod +x "{exe_name}"
+"./{exe_name}" &
+rm -- "$0"
+"""
+                with open("update.sh", "w", newline='\\n') as sh_file:
+                    sh_file.write(sh_content)
+                os.chmod("update.sh", 0o755)
+                subprocess.Popen(["bash", "update.sh"], start_new_session=True)
             
-            # Fecha o aplicativo atual imediatamente
             os._exit(0)
             
         except Exception as e:

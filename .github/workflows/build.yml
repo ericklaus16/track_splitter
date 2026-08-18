@@ -1,0 +1,74 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Dispara quando uma tag como v1.0.3 for enviada
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+      fail-fast: false
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build Executable
+      run: python build.py
+
+    - name: Zip Full Application (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        Compress-Archive -Path dist\TrackSplitter -DestinationPath TrackSplitter-Windows-Full.zip
+        Compress-Archive -Path dist\TrackSplitter\TrackSplitter.exe -DestinationPath TrackSplitter-Windows-Patch.zip
+
+    - name: Zip Full Application (Mac)
+      if: runner.os == 'macOS'
+      run: |
+        cd dist
+        zip -r ../TrackSplitter-Mac-Full.zip TrackSplitter
+        # No Mac o PyInstaller onedir windowed gera TrackSplitter.app, mas o build.py tira o --windowed no linux/mac?
+        # Nosso build.py usa --windowed. Em Mac gera .app
+        # Na verdade, para simplificar vamos apenas zipar a pasta TrackSplitter inteira.
+        # No --onedir sem --windowed no Mac gera uma pasta TrackSplitter normal. Nosso build.py tem --windowed.
+        # Vamos zipar todo o conteúdo para Patch também, apenas omitindo a pasta _internal se possível, ou zipando só o executável.
+        # Para garantir estabilidade no Patch de Mac/Linux, vamos zipar o executável "TrackSplitter" ou ".app" 
+        cd TrackSplitter
+        zip -r ../../TrackSplitter-Mac-Patch.zip * -x "*_internal*"
+        cd ../..
+
+    - name: Zip Full Application (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        cd dist
+        zip -r ../TrackSplitter-Linux-Full.zip TrackSplitter
+        cd TrackSplitter
+        zip -r ../../TrackSplitter-Linux-Patch.zip * -x "*_internal*"
+        cd ../..
+
+    - name: Upload Artifacts to Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          TrackSplitter-*-Full.zip
+          TrackSplitter-*-Patch.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
