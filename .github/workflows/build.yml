@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # Dispara quando uma tag como v1.0.3 for enviada
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}

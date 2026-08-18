@@ -8,14 +8,30 @@ def ensure_ffmpeg(progress_callback=None):
     """Baixa o FFmpeg e FFprobe automaticamente se não existirem no PC"""
     import urllib.request
     import zipfile
+    import platform
+    import shutil
+    
+    is_windows = platform.system().lower() == "windows"
+    
+    # Se já existir instalado globalmente no computador (Mac/Linux/Win), usamos ele!
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+        return None
     
     # Se estiver rodando como .exe, salva na pasta onde o .exe está
     base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-    ffmpeg_exe = os.path.join(base_dir, "ffmpeg.exe")
-    ffprobe_exe = os.path.join(base_dir, "ffprobe.exe")
+    ffmpeg_exe = os.path.join(base_dir, "ffmpeg.exe" if is_windows else "ffmpeg")
+    ffprobe_exe = os.path.join(base_dir, "ffprobe.exe" if is_windows else "ffprobe")
     
     if os.path.exists(ffmpeg_exe) and os.path.exists(ffprobe_exe):
-        return base_dir # Já temos os arquivos!
+        return base_dir # Já temos os arquivos na pasta!
+        
+    # Se não for Windows, o sistema não deixa baixarmos executáveis soltos
+    if not is_windows:
+        msg = ("FFmpeg não encontrado no sistema!\n\n"
+               "Para extrair áudios do YouTube no Mac/Linux, você precisa instalar o FFmpeg.\n"
+               "- No Mac, abra o Terminal e digite: brew install ffmpeg\n"
+               "- No Linux, abra o Terminal e digite: sudo apt install ffmpeg")
+        raise Exception(msg)
         
     if progress_callback:
         progress_callback(0.0, "Instalando dependências de áudio (FFmpeg) pela primeira vez...")
@@ -72,7 +88,6 @@ def download_youtube_audio(url, output_folder, progress_callback=None):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'ffmpeg_location': ffmpeg_dir,
         'progress_hooks': [my_hook],
         'quiet': True,
         'no_warnings': True,
@@ -80,6 +95,9 @@ def download_youtube_audio(url, output_folder, progress_callback=None):
         'extractor_args': {'youtube': ['player_client=default,tv,ios']}, # Contorna o bloqueio 403 do YouTube
         'geo_bypass': True,
     }
+    
+    if ffmpeg_dir:
+        ydl_opts['ffmpeg_location'] = ffmpeg_dir
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=True)
