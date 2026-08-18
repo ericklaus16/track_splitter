@@ -9,8 +9,8 @@ from tkinter import filedialog, messagebox
 from core import download_youtube_audio, separate_audio
 
 # Configuração de Versão e Auto-Update
-CURRENT_VERSION = "v1.0.0"
-GITHUB_REPO = "ericklaus16/track_splitter.git" 
+CURRENT_VERSION = "v1.0.1"
+GITHUB_REPO = "ericklaus16/track_splitter" 
 
 # Configuração da aparência inicial
 ctk.set_appearance_mode("Dark")
@@ -21,8 +21,9 @@ class TrackSplitterApp(ctk.CTk):
         super().__init__()
 
         self.title(f"Track Splitter Pro - {CURRENT_VERSION}")
-        self.geometry("600x550")
-        self.resizable(False, False)
+        self.geometry("650x700")
+        self.minsize(600, 600)
+        self.resizable(True, True)
 
         # Variáveis
         self.input_type = ctk.StringVar(value="file")
@@ -205,11 +206,16 @@ class TrackSplitterApp(ctk.CTk):
 
     def perform_update(self, download_url):
         try:
-            # Baixa o arquivo para "update.exe"
+            import zipfile
+            
+            is_zip = download_url.lower().endswith('.zip')
+            download_name = "update.zip" if is_zip else "update.exe"
+            
+            # Baixa o arquivo (pode ser .exe ou .zip)
             response = requests.get(download_url, stream=True)
             total_size = int(response.headers.get('content-length', 0))
             
-            with open("update.exe", "wb") as file:
+            with open(download_name, "wb") as file:
                 downloaded = 0
                 for data in response.iter_content(chunk_size=4096):
                     file.write(data)
@@ -219,10 +225,23 @@ class TrackSplitterApp(ctk.CTk):
             
             self.update_progress(1.0, "Atualização baixada! Reiniciando...")
             
+            # Se for um ZIP, descompacta ele para pegar o update.exe
+            if is_zip:
+                with zipfile.ZipFile(download_name, 'r') as zip_ref:
+                    # Procura pelo arquivo .exe dentro do zip
+                    file_list = zip_ref.namelist()
+                    exe_file = next((f for f in file_list if f.endswith('.exe')), None)
+                    if exe_file:
+                        # Extrai e renomeia para update.exe
+                        extracted_path = zip_ref.extract(exe_file)
+                        if os.path.exists("update.exe"):
+                            os.remove("update.exe")
+                        os.rename(extracted_path, "update.exe")
+                # Apaga o zip original
+                os.remove(download_name)
+            
             # Criar script BAT para substituir o .exe atual e reiniciar
             current_exe = sys.executable
-            
-            # Pega só o nome do executável atual (ex: TrackSplitter.exe)
             exe_name = os.path.basename(current_exe)
             
             # Script que espera 2 segundos, move o update.exe para o nome original, inicia e se deleta

@@ -79,7 +79,8 @@ def separate_audio(input_file, output_folder, stems=2, progress_callback=None):
             self.buffer = ""
 
         def write(self, text):
-            self.original_stderr.write(text)
+            if self.original_stderr is not None:
+                self.original_stderr.write(text)
             self.buffer += text
             if '\r' in self.buffer or '\n' in self.buffer:
                 parts = self.buffer.replace('\r', '\n').split('\n')
@@ -95,7 +96,8 @@ def separate_audio(input_file, output_folder, stems=2, progress_callback=None):
                 self.buffer = parts[-1]
 
         def flush(self):
-            self.original_stderr.flush()
+            if self.original_stderr is not None:
+                self.original_stderr.flush()
 
     # Intercepta o sys.stderr temporariamente para ler o progresso
     interceptor = None
