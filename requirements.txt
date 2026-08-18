@@ -1,0 +1,7 @@
+customtkinter==5.2.2
+demucs>=4.0.0
+yt-dlp>=2024.7.25
+PyInstaller>=6.9.0
+pillow>=10.4.0
+numpy>=1.26.0
+requests>=2.31.0
